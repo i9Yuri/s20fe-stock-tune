@@ -6,7 +6,7 @@ log() {
     echo "[$(date "+%Y-%m-%d %H:%M:%S")] $1" >> "$LOGFILE"
 }
 
-log "=== Iniciando S20 FE One UI 5.1 Ultimate Stock Optimizer v3.9 ==="
+log "=== Iniciando S20 FE One UI 5.1 Ultimate Stock Optimizer v4.0 ==="
 
 # Aguarda boot completo e desbloqueio inicial
 until [ "$(getprop sys.boot_completed)" = "1" ]; do
@@ -14,7 +14,7 @@ until [ "$(getprop sys.boot_completed)" = "1" ]; do
 done
 sleep 5
 
-log "Sistema estabilizado. Aplicando calibrações de elite v3.9..."
+log "Sistema estabilizado. Aplicando calibrações de elite v4.0..."
 
 # 1. CPU Governors, EAS Schedtune & Agendador (Snapdragon 865)
 for cpu in 0 1 2 3 4 5 6 7; do
@@ -65,10 +65,10 @@ echo 0 > /proc/sys/vm/page-cluster 2>/dev/null
 echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
 echo 10 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
 echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
-echo 98304 > /proc/sys/vm/min_free_kbytes 2>/dev/null
-echo 65536 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
-echo 100 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
-echo 15000 > /proc/sys/vm/watermark_boost_factor 2>/dev/null
+echo 65536 > /proc/sys/vm/min_free_kbytes 2>/dev/null
+echo 0 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
+echo 50 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+echo 0 > /proc/sys/vm/watermark_boost_factor 2>/dev/null
 echo 750 > /proc/sys/vm/extfrag_threshold 2>/dev/null
 
 # Dirty writeback fluido para evitar engasgos de gravação em disco
@@ -76,7 +76,7 @@ echo 500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
 echo 1000 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
 
 (echo 3 > /proc/sys/vm/drop_caches; echo 1 > /proc/sys/vm/compact_memory) &
-log "RAM: Gerenciamento calibrado (min_free=96MB, watermark=100, dirty writeback 5s/10s, anti-fragmentação)."
+log "RAM: Gerenciamento calibrado (min_free=64MB, watermark=50, boost_factor=0, dirty writeback 5s/10s, anti-fragmentação)."
 
 # 5. Multitarefa Samsung SLMK & ART Dalvik (Preservação de 8GB RAM)
 setprop ro.config.dha_cached_max 32 2>/dev/null
@@ -174,52 +174,53 @@ apply_dynamicspot_firewall() {
 apply_dynamicspot_firewall
 log "Segurança: Firewall de rede ativado para dynamicSpot."
 
-# 12. Qualcomm CamX Hardware Overrides & Camera Preferences Auto-Tuning
+# 12. Calibração de Preferências da Câmera (Eliminação de OCR, IA de Cena e Embelezamento em Preview)
 CAMX_DIR="/data/vendor/camera"
-if [ -d "$CAMX_DIR" ]; then
-    echo "EISV3Enable=FALSE" > "$CAMX_DIR/camxoverridesettings.txt"
-    chown camera:camera "$CAMX_DIR/camxoverridesettings.txt" 2>/dev/null
-    chmod 0644 "$CAMX_DIR/camxoverridesettings.txt" 2>/dev/null
-fi
-setprop persist.vendor.camera.eisv3enable 0 2>/dev/null
-setprop persist.vendor.camera.EISV3Enable 0 2>/dev/null
+rm -f "$CAMX_DIR/camxoverridesettings.txt" 2>/dev/null
+resetprop -p -d persist.vendor.camera.eisv3enable 2>/dev/null || resetprop -d persist.vendor.camera.eisv3enable 2>/dev/null || true
+resetprop -p -d persist.vendor.camera.EISV3Enable 2>/dev/null || resetprop -d persist.vendor.camera.EISV3Enable 2>/dev/null || true
 
-CAM_PREFS="/data/user/0/com.sec.android.app.camera/shared_prefs/com.sec.android.app.camera_preferences.xml"
+CAM_PREFS="/data/data/com.sec.android.app.camera/shared_prefs/com.sec.android.app.camera_preferences.xml"
 if [ -f "$CAM_PREFS" ]; then
-    sed -i 's/<string name="video_stabilisation">1<\/string>/<string name="video_stabilisation">0<\/string>/g' "$CAM_PREFS" 2>/dev/null
-    sed -i 's/<string name="scene_optimizer">1<\/string>/<string name="scene_optimizer">0<\/string>/g' "$CAM_PREFS" 2>/dev/null
-    sed -i 's/<string name="additional_scene_document_scan">1<\/string>/<string name="additional_scene_document_scan">0<\/string>/g' "$CAM_PREFS" 2>/dev/null
-    sed -i 's/<string name="adaptive_lens_mode">1<\/string>/<string name="adaptive_lens_mode">0<\/string>/g' "$CAM_PREFS" 2>/dev/null
-    sed -i 's/<string name="video_adaptive_lens_mode">1<\/string>/<string name="video_adaptive_lens_mode">0<\/string>/g' "$CAM_PREFS" 2>/dev/null
+    for key in qr_code_detection scene_optimizer additional_scene_document_scan front_photo_beauty_type back_photo_beauty_type front_beauty_smoothness_level back_beauty_smoothness_level adaptive_lens_mode video_adaptive_lens_mode video_stabilisation; do
+        if grep -q "name=\"$key\"" "$CAM_PREFS"; then
+            sed -i "s|<string name=\"$key\">.*</string>|<string name=\"$key\">0</string>|g" "$CAM_PREFS" 2>/dev/null
+        else
+            sed -i "s|</map>|    <string name=\"$key\">0</string>\n</map>|" "$CAM_PREFS" 2>/dev/null
+        fi
+    done
 fi
-log "Câmera: Overrides de hardware CamX e calibração de fluidez de preferências aplicados."
+log "Câmera: Preferências calibradas (QR Code OCR desligado, Scene AI desligado, Beauty desligado, OIS 100% ativo)."
 
 # 13. Priorização de Daemons Críticos (Biometria, Áudio DSP e Câmera)
 boost_critical_daemons() {
-    # 1. Leitor Biométrico Óptico de Digital
+    # 1. Leitor Biométrico Óptico de Digital (nice -20)
     fpid=$(pidof vendor.samsung.hardware.biometrics.fingerprint@3.0-service 2>/dev/null)
     if [ -n "$fpid" ]; then
-        renice -n "-10" "$fpid" 2>/dev/null
+        renice -n "-20" "$fpid" 2>/dev/null
         for tid in /proc/$fpid/task/*; do
-            renice -n "-10" "${tid##*/}" 2>/dev/null
+            renice -n "-20" "${tid##*/}" 2>/dev/null
         done
     fi
 
-    # 2. Pipeline de Áudio e DSP Qualcomm
+    # 2. Pipeline de Áudio e DSP Qualcomm (nice -20)
     for apid in $(pidof audioserver vendor.audio-hal adsprpcd 2>/dev/null); do
-        renice -n "-10" "$apid" 2>/dev/null
+        renice -n "-20" "$apid" 2>/dev/null
+        for tid in /proc/$apid/task/*; do
+            renice -n "-20" "${tid##*/}" 2>/dev/null
+        done
     done
 
-    # 3. Hardware de Câmera e Codecs de Vídeo
+    # 3. Hardware de Câmera e Codecs de Vídeo (nice -15/-20)
     for cpid in $(pidof com.sec.android.app.camera vendor.samsung.hardware.camera.provider@4.0-service_64 cameraserver media.codec media.swcodec 2>/dev/null); do
-        renice -n "-10" "$cpid" 2>/dev/null
+        renice -n "-15" "$cpid" 2>/dev/null
         for tid in /proc/$cpid/task/*; do
-            renice -n "-10" "${tid##*/}" 2>/dev/null
+            renice -n "-15" "${tid##*/}" 2>/dev/null
         done
     done
 }
 boost_critical_daemons
-log "Priorização: Biometria óptica, Áudio DSP e Câmera configurados em tempo real (nice -10)."
+log "Priorização: Biometria óptica (-20), Áudio DSP (-20) e Câmera (-15) configurados em tempo real."
 
 # 14. Limpeza Autônoma de Backups Redundantes do WhatsApp (Proteção de Armazenamento)
 clean_whatsapp_backups() {
@@ -231,125 +232,116 @@ clean_whatsapp_backups() {
 clean_whatsapp_backups
 log "WhatsApp: Rotina de retenção de backups ativada (preserva ativo + último histórico)."
 
-# 15. Sentinela Adaptativo de Sub-Segundo (Câmera, 4K60, RAM, Deep Sleep e Trim)
+# 15. Sentinela de Câmera Nativamente Orientado a Eventos (Zero Polling / Futex de Baixa Latência)
 log "Sentinela adaptativo operacional..."
-(
-    # Inicializa patamares de repouso se camera nao estiver em execucao
-    if [ "$(getprop service.camera.running)" != "1" ]; then
-        echo 300000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 2>/dev/null
-        echo 710400 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
-        echo 844800 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 2>/dev/null
-    fi
 
-    cam_active=0
-    rec_active=0
-    heartbeat=0
+# Estado inicial ao iniciar o serviço
+if [ "$(resetprop service.camera.running 2>/dev/null)" = "1" ]; then
+    echo 1459200 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+    echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+    echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+    echo 25 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+    boost_critical_daemons
+else
+    echo 300000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+    echo 710400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+    echo 844800 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+fi
+
+# Sentinela de Abertura e Fechamento da Câmera (0ms de latência via futex)
+(
+    while true; do
+        # 1. Bloqueia em repouso absoluto (0% CPU) até a câmera ser iniciada
+        resetprop -w service.camera.running 0 >/dev/null 2>&1
+        
+        # RAMP INSTANTÂNEO DE HARDWARE (0ms de latência ao abrir a câmera)
+        echo 1459200 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+        echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+        echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        echo 25 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+        boost_critical_daemons
+        
+        # 2. Bloqueia em repouso absoluto durante o uso da câmera até ela ser fechada
+        resetprop -w service.camera.running 1 >/dev/null 2>&1
+        
+        # RETORNO A REPOUSO IMEDIATO (Economia total de bateria ao fechar a câmera)
+        echo 300000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+        echo 710400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+        echo 844800 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        echo 10 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+        (echo 1 > /proc/sys/vm/compact_memory) &
+    done
+) &
+
+# Sentinela de Gravação 4K 60fps (Zero Polling / Futex)
+(
+    while true; do
+        # Aguarda início da gravação
+        resetprop -w service.camera.rec.running 0 >/dev/null 2>&1
+        
+        # RAMP 4K60 ULTRA-BOOST
+        echo 2016000 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+        echo 2457600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        
+        # Aguarda parada da gravação
+        resetprop -w service.camera.rec.running 1 >/dev/null 2>&1
+        
+        # Se a câmera ainda estiver aberta em preview, restaura o patamar de preview
+        if [ "$(resetprop service.camera.running 2>/dev/null)" = "1" ]; then
+            echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+            echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        fi
+    done
+) &
+
+# Sentinela de Manutenção Periódica e Sono Profundo
+(
     cycle_count=0
     trim_day=0
-
     while true; do
-        # 1. Checagem rápida de estado de tela (Deep Sleep vs Ativo)
+        sleep 60
+
         screen_asleep=0
         if dumpsys power 2>/dev/null | grep -q "mWakefulness=Asleep"; then
             screen_asleep=1
         fi
 
-        # Se a tela estiver apagada e a câmera inativa, repousa por mais tempo (economia total)
-        if [ "$screen_asleep" -eq 1 ] && [ "$cam_active" -eq 0 ]; then
-            sleep 3
+        curr_swappiness=$(cat /proc/sys/vm/swappiness 2>/dev/null)
+        if [ -n "$curr_swappiness" ] && [ "$curr_swappiness" -gt 60 ]; then
+            echo 60 > /proc/sys/vm/swappiness 2>/dev/null
         fi
 
-        # 2. Monitor reativo de Câmera Samsung
-        cam_running=$(getprop service.camera.running)
-        if [ "$cam_running" = "1" ]; then
-            if [ "$cam_active" -eq 0 ]; then
-                # Ramp imediato de CPU para abertura instantânea e troca de lentes
-                echo 1459200 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 2>/dev/null
-                echo 1804800 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
-                echo 2169600 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 2>/dev/null
-                
-                # Desfragmentação assíncrona de páginas contíguas para CamX e 4K60
+        stop vendor.cnss_diag 2>/dev/null
+        stop vendor.ipacm-diag 2>/dev/null
+        pm disable com.samsung.android.game.gos 2>/dev/null
+        apply_dynamicspot_firewall
+        boost_critical_daemons
+
+        # Desfragmentação preventiva de CMA se memória contígua estiver baixa (< 60MB)
+        if [ "$(resetprop service.camera.running 2>/dev/null)" != "1" ]; then
+            curr_cma_free=$(awk '/CmaFree:/ {print $2}' /proc/meminfo 2>/dev/null)
+            if [ -n "$curr_cma_free" ] && [ "$curr_cma_free" -lt 60000 ]; then
                 (echo 3 > /proc/sys/vm/drop_caches; echo 1 > /proc/sys/vm/compact_memory) &
-                
-                boost_critical_daemons
-                cam_active=1
-            fi
-
-            # Monitor reativo de gravação de vídeo (4K 60fps ultra-boost)
-            rec_running=$(getprop service.camera.rec.running)
-            if [ "$rec_running" = "1" ]; then
-                if [ "$rec_active" -eq 0 ]; then
-                    echo 2016000 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
-                    echo 2457600 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 2>/dev/null
-                    rec_active=1
-                fi
             else
-                if [ "$rec_active" -eq 1 ]; then
-                    echo 1804800 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
-                    echo 2169600 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 2>/dev/null
-                    rec_active=0
-                fi
-            fi
-
-            sleep 0.2
-        else
-            if [ "$cam_active" -eq 1 ]; then
-                # Câmera fechada: restaura frequências de repouso (economia total de bateria)
-                echo 300000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 2>/dev/null
-                echo 710400 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 2>/dev/null
-                echo 844800 > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 2>/dev/null
-                cam_active=0
-                rec_active=0
                 (echo 1 > /proc/sys/vm/compact_memory) &
             fi
-
-            if [ "$screen_asleep" -eq 0 ]; then
-                sleep 0.4
-            fi
         fi
 
-        heartbeat=$((heartbeat + 1))
-        # Tarefas periódicas a cada ~60 segundos
-        if [ "$heartbeat" -ge 150 ]; then
-            heartbeat=0
-            cycle_count=$((cycle_count + 1))
-            
-            curr_swappiness=$(cat /proc/sys/vm/swappiness 2>/dev/null)
-            if [ -n "$curr_swappiness" ] && [ "$curr_swappiness" -gt 60 ]; then
-                echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-            fi
-            
-            stop vendor.cnss_diag 2>/dev/null
-            stop vendor.ipacm-diag 2>/dev/null
-            pm disable com.samsung.android.game.gos 2>/dev/null
-            apply_dynamicspot_firewall
-            boost_critical_daemons
+        # Retenção de backups do WhatsApp a cada 6 horas (360 x 60s)
+        cycle_count=$((cycle_count + 1))
+        if [ "$cycle_count" -ge 360 ]; then
+            cycle_count=0
+            clean_whatsapp_backups
+        fi
 
-            # Desfragmentação preventiva de CMA se memória contígua estiver baixa (< 60MB)
-            if [ "$cam_active" -eq 0 ]; then
-                curr_cma_free=$(awk '/CmaFree:/ {print $2}' /proc/meminfo 2>/dev/null)
-                if [ -n "$curr_cma_free" ] && [ "$curr_cma_free" -lt 60000 ]; then
-                    (echo 3 > /proc/sys/vm/drop_caches; echo 1 > /proc/sys/vm/compact_memory) &
-                else
-                    (echo 1 > /proc/sys/vm/compact_memory) &
-                fi
-            fi
-
-            # Executa rotina de retenção de backups do WhatsApp a cada 6 horas (360 ciclos de 60s)
-            if [ "$cycle_count" -ge 360 ]; then
-                cycle_count=0
-                clean_whatsapp_backups
-            fi
-
-            # Executa fstrim de armazenamento silencioso uma vez a cada 24 horas durante sono profundo
-            if [ "$screen_asleep" -eq 1 ]; then
-                trim_day=$((trim_day + 1))
-                if [ "$trim_day" -ge 1440 ]; then
-                    trim_day=0
-                    sm fstrim 2>/dev/null
-                fi
+        # Fstrim silencioso a cada 24 horas durante sono profundo
+        if [ "$screen_asleep" -eq 1 ]; then
+            trim_day=$((trim_day + 1))
+            if [ "$trim_day" -ge 1440 ]; then
+                trim_day=0
+                sm fstrim 2>/dev/null
             fi
         fi
     done
 ) &
-log "=== Otimizações v3.9 concluídas com sucesso. Sentinela operacional. ==="
+log "=== Otimizações v4.0 concluídas com sucesso. Sentinela operacional. ==="

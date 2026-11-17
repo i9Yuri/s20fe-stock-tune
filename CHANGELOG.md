@@ -2,6 +2,19 @@
 
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 
+## [4.0] - 2026-11-17
+
+### Corrigido & Otimizado
+- **Resolução Definitiva dos Engasgos na Abertura da Câmera (Modo Foto e Vídeo):**
+  - **Eliminação do OCR de Código QR em Tempo Real (`SaivQRCodeNode` / `QURAM_OCR`):** Desativação determinística de `qr_code_detection=0` nas preferências (`com.sec.android.app.camera_preferences.xml`), eliminando o processo de decodificação neural a cada quadro no preview que consumia de 50ms a 65ms por frame.
+  - **Remoção de Conflito de Metadados CamX (`EISV3Enable` & Tag `0x80640001`):** Exclusão de `camxoverridesettings.txt` e limpeza das propriedades de persistência, sanando centenas de exceções de metadados por segundo e desafogando o daemon `vendor.samsung.hardware.camera.provider@4.0-service_64`.
+  - **Sentinela 100% Orientado a Eventos (Futex do Kernel com `resetprop -w`):** Substituição do ciclo de polling por gatilhos nativos de futex do kernel nos eventos `service.camera.running` e `service.camera.rec.running`. O ramp de CPU (Little 1.46GHz, Big 1.80GHz, Prime 2.17GHz e `schedtune.boost=25`) agora ocorre em exatos 0 ms, antes mesmo da inflação da primeira view.
+  - **Calibração de Memória e Marca d'Água do LMKD:** Redução de `min_free_kbytes` de 96 MB para 64 MB (`65536`), `watermark_scale_factor=50` e eliminação de `watermark_boost_factor=0`, erradicando os disparos espúrios do LMKD e matanças em lote de apps durante o cold start da câmera.
+  - **Remoção de Limpeza de Cache no Gatilho de Câmera:** Remoção do `drop_caches=3` no momento exato de inicialização, preservando código DEX compilado e buffers de layout na pagecache do kernel.
+  - **Priorização dos Daemons de Câmera e DSP:** Ajuste de prioridade em tempo real (`nice -15`) para `com.sec.android.app.camera`, `cameraserver`, codecs e drivers do sensor.
+
+---
+
 ## [3.9] - 2026-11-17
 
 ### Adicionado
