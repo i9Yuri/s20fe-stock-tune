@@ -6,7 +6,7 @@ log() {
     echo "[$(date "+%Y-%m-%d %H:%M:%S")] $1" >> "$LOGFILE"
 }
 
-log "=== Iniciando S20 FE One UI 5.1 Ultimate Stock Optimizer v4.0 ==="
+log "=== Iniciando S20 FE One UI 5.1 Ultimate Stock Optimizer v4.1 ==="
 
 # Aguarda boot completo e desbloqueio inicial
 until [ "$(getprop sys.boot_completed)" = "1" ]; do
@@ -14,7 +14,7 @@ until [ "$(getprop sys.boot_completed)" = "1" ]; do
 done
 sleep 5
 
-log "Sistema estabilizado. Aplicando calibrações de elite v4.0..."
+log "Sistema estabilizado. Aplicando calibrações de elite v4.1..."
 
 # 1. CPU Governors, EAS Schedtune & Agendador (Snapdragon 865)
 for cpu in 0 1 2 3 4 5 6 7; do
@@ -32,13 +32,16 @@ echo 1 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null
 echo 1056000 > /sys/devices/system/cpu/cpufreq/policy4/schedutil/rtg_boost_freq 2>/dev/null
 echo 1190400 > /sys/devices/system/cpu/cpufreq/policy7/schedutil/rtg_boost_freq 2>/dev/null
 
-# Cpuset partitioning
+# Cpuset partitioning & CFS cpu.shares (isolamento de prioridade de CPU)
 echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null
 echo 0-6 > /dev/cpuset/foreground/cpus 2>/dev/null
 echo 0-3 > /dev/cpuset/background/cpus 2>/dev/null
 echo 0-3 > /dev/cpuset/system-background/cpus 2>/dev/null
 echo 0-7 > /dev/cpuset/camera-daemon/cpus 2>/dev/null
-log "CPU & Cpuset: Particionamento, Schedutil 1ms/10ms, Schedtune EAS e RTG Boost configurados."
+
+echo 8192 > /dev/cpuctl/camera-daemon/cpu.shares 2>/dev/null
+echo 8192 > /dev/cpuctl/top-app/cpu.shares 2>/dev/null
+log "CPU & Cpuset: Particionamento, CFS shares 8192, Schedutil 1ms/10ms, Schedtune EAS e RTG Boost configurados."
 
 # 2. GPU Adreno 650 (Estabilidade 120Hz)
 echo 80 > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
@@ -108,10 +111,10 @@ log "UFS 3.1: Agendador Deadline ativo (read_expire=100ms, write_expire=1000ms, 
 
 # 7. Samsung Input Booster (Latência de Toque e Rolagem Instantânea)
 if [ -d /sys/class/input_booster/touch ]; then
-    echo "150 1459200 1017 2 5" > /sys/class/input_booster/touch/head 2>/dev/null
-    echo "500 1171200 1017 2 5" > /sys/class/input_booster/touch/tail 2>/dev/null
+    echo "200 1804800 1017 2 5" > /sys/class/input_booster/touch/head 2>/dev/null
+    echo "500 1459200 1017 2 5" > /sys/class/input_booster/touch/tail 2>/dev/null
 fi
-log "Touch: Input Booster calibrado para 1.46GHz instantâneo ao primeiro toque."
+log "Touch: Input Booster calibrado para 1.80GHz instantâneo ao primeiro toque."
 
 # 8. Otimizações de Rede & TCP (Cubic + SACK + Fresh Handshake)
 echo "cubic" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
@@ -211,16 +214,16 @@ boost_critical_daemons() {
         done
     done
 
-    # 3. Hardware de Câmera e Codecs de Vídeo (nice -15/-20)
+    # 3. Hardware de Câmera e Codecs de Vídeo (nice -20 real-time)
     for cpid in $(pidof com.sec.android.app.camera vendor.samsung.hardware.camera.provider@4.0-service_64 cameraserver media.codec media.swcodec 2>/dev/null); do
-        renice -n "-15" "$cpid" 2>/dev/null
+        renice -n "-20" "$cpid" 2>/dev/null
         for tid in /proc/$cpid/task/*; do
-            renice -n "-15" "${tid##*/}" 2>/dev/null
+            renice -n "-20" "${tid##*/}" 2>/dev/null
         done
     done
 }
 boost_critical_daemons
-log "Priorização: Biometria óptica (-20), Áudio DSP (-20) e Câmera (-15) configurados em tempo real."
+log "Priorização: Biometria óptica (-20), Áudio DSP (-20) e Câmera (-20) configurados em tempo real."
 
 # 14. Limpeza Autônoma de Backups Redundantes do WhatsApp (Proteção de Armazenamento)
 clean_whatsapp_backups() {
@@ -237,15 +240,19 @@ log "Sentinela adaptativo operacional..."
 
 # Estado inicial ao iniciar o serviço
 if [ "$(resetprop service.camera.running 2>/dev/null)" = "1" ]; then
-    echo 1459200 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
-    echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
-    echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
-    echo 25 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+    echo 1612800 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+    echo 2246400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+    echo 2649600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+    echo 35 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+    echo 490000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
+    echo 100 > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
     boost_critical_daemons
 else
     echo 300000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
     echo 710400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
     echo 844800 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+    echo 305000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
+    echo 80 > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
 fi
 
 # Sentinela de Abertura e Fechamento da Câmera (0ms de latência via futex)
@@ -254,11 +261,13 @@ fi
         # 1. Bloqueia em repouso absoluto (0% CPU) até a câmera ser iniciada
         resetprop -w service.camera.running 0 >/dev/null 2>&1
         
-        # RAMP INSTANTÂNEO DE HARDWARE (0ms de latência ao abrir a câmera)
-        echo 1459200 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
-        echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
-        echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
-        echo 25 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+        # RAMP INSTANTÂNEO DE HARDWARE (Fluidez extrema no preview e alternância de lentes 0.5x/1.0x/3.0x)
+        echo 1612800 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+        echo 2246400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+        echo 2649600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        echo 35 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+        echo 490000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
+        echo 100 > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
         boost_critical_daemons
         
         # 2. Bloqueia em repouso absoluto durante o uso da câmera até ela ser fechada
@@ -269,6 +278,8 @@ fi
         echo 710400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
         echo 844800 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
         echo 10 > /dev/stune/top-app/schedtune.boost 2>/dev/null
+        echo 305000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
+        echo 80 > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
         (echo 1 > /proc/sys/vm/compact_memory) &
     done
 ) &
@@ -279,17 +290,20 @@ fi
         # Aguarda início da gravação
         resetprop -w service.camera.rec.running 0 >/dev/null 2>&1
         
-        # RAMP 4K60 ULTRA-BOOST
-        echo 2016000 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
-        echo 2457600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        # RAMP 4K60 ULTRA-BOOST (CPU Big 2.42GHz, Prime 2.84GHz, GPU 587MHz)
+        echo 2419200 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+        echo 2841600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+        echo 587000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
         
         # Aguarda parada da gravação
         resetprop -w service.camera.rec.running 1 >/dev/null 2>&1
         
         # Se a câmera ainda estiver aberta em preview, restaura o patamar de preview
         if [ "$(resetprop service.camera.running 2>/dev/null)" = "1" ]; then
-            echo 1804800 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
-            echo 2169600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+            echo 1612800 > /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq 2>/dev/null
+            echo 2246400 > /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq 2>/dev/null
+            echo 2649600 > /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq 2>/dev/null
+            echo 490000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null
         fi
     done
 ) &
@@ -344,4 +358,4 @@ fi
         fi
     done
 ) &
-log "=== Otimizações v4.0 concluídas com sucesso. Sentinela operacional. ==="
+log "=== Otimizações v4.1 concluídas com sucesso. Sentinela operacional. ==="

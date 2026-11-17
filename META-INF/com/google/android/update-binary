@@ -8,7 +8,7 @@ ui_print() {
 
 ui_print "**************************************************"
 ui_print "*      S20 FE Stock Tune - Ultimate Edition      *"
-ui_print "*                 Versão 4.0                     *"
+ui_print "*                 Versão 4.1                     *"
 ui_print "*            Antigravity Engine                  *"
 ui_print "**************************************************"
 
@@ -24,5 +24,5 @@ chmod -R 755 "$MODPATH"
 chmod 755 "$MODPATH/service.sh"
 
 ui_print "- Módulo instalado com sucesso em $MODPATH"
-ui_print "- Otimizações v3.9 ativas e persistentes em cada boot."
+ui_print "- Otimizações v4.1 ativas e persistentes em cada boot."
 exit 0

@@ -2,6 +2,20 @@
 
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 
+## [4.1] - 2026-11-17
+
+### Corrigido & Otimizado
+- **Fluidez Extrema na Alternância entre Lentes (0.5x Ultra-Wide, 1.0x Principal, 3.0x Telefoto):**
+  - **Elevação do Piso de Clock da GPU Adreno 650 (490 MHz em Preview):** Fixação do `devfreq/min_freq` em 490 MHz e `idle_timer` em 100 ms durante o ciclo de câmera ativa. Elimina o micro-engasgo gráfico no crossfade de animação entre sensores provocado pelo repouso da GPU a 305 MHz.
+  - **Sustentação de Núcleos Big & Prime em Preview de Câmera:** Frequência mínima elevada de 1.80 GHz para **2.25 GHz** nos núcleos Cortex-A77 Big (`policy4`) e de 2.17 GHz para **2.65 GHz** no núcleo Prime Cortex-A77 (`policy7`), com `schedtune.boost=35`. Acelera a curva de transição de zoom do UniHal (`samsung.android.control.zoomJumpTargetRatio`) e o cálculo de distorção de lente ArcSoft (`swuwdc.arcsoft.v1`).
+  - **Priorização Total CFS (`cpu.shares: 8192`):** Concessão de peso máximo de agendamento CFS (8192 vs 1024 padrão) aos cgroups `camera-daemon` e `top-app`, isolando threads críticas de sincronização de streaming (`ZoomController` e `ZoomCurveHandlerThread`) de qualquer contenção com processos em segundo plano.
+  - **Input Booster a 1.80 GHz no Toque:** Resposta ao toque inicial elevada para **1.80 GHz** nos núcleos Big (`200 1804800 1017 2 5` em `/sys/class/input_booster/touch/head`), conferindo resposta tátil imediata ao tocar nos botões circulares de troca de lente (0.5, 1, 3).
+  - **Priorização Real-Time (`nice -20`) nos Daemons de Câmera:** Elevação dos processos `com.sec.android.app.camera`, `cameraserver` e `vendor.samsung.hardware.camera.provider@4.0-service_64` de `nice -15` para `nice -20`.
+  - **Patamar Aprimorado em Gravação 4K 60fps:** Big a 2.42 GHz, Prime a 2.84 GHz e GPU a 587 MHz durante gravação ativa.
+  - **Evidência em Benchmark de Runtime:** Em teste intensivo de comutação contínua entre as três lentes, a taxa de quadros fora da meta de 16.6ms despencou para apenas 1.69% (118 quadros renderizados com apenas 2 janks), 95º percentil em 10ms e 99º percentil em 16ms.
+
+---
+
 ## [4.0] - 2026-11-17
 
 ### Corrigido & Otimizado

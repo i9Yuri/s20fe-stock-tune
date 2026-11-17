@@ -1,6 +1,6 @@
 id=s20fe_stock_tune
 name=S20 FE Stock Tune (One UI 5.1 Ultimate)
-version=v4.0
-versionCode=40
+version=v4.1
+versionCode=41
 author=Antigravity
-description=Otimizador mestre definitivo para Samsung Galaxy S20 FE 5G (Snapdragon 865, 8GB RAM, One UI 5.1). Fluidez total na Câmera (Modo Foto e Vídeo 4K60 sem engasgos), UFS 3.1 Deadline I/O, Input Booster 1.46GHz, biometria óptica e áudio DSP em tempo real, SLMK multitarefa 8GB.
+description=Otimizador mestre definitivo para Samsung Galaxy S20 FE 5G (Snapdragon 865, 8GB RAM, One UI 5.1). Fluidez extrema na troca de lentes (0.5x, 1.0x, 3.0x), GPU 490MHz em preview, CPU Big 2.25GHz / Prime 2.65GHz, UFS 3.1 Deadline I/O, Input Booster 1.80GHz, biometria óptica e áudio DSP em tempo real.

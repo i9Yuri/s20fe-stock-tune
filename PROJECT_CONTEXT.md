@@ -56,22 +56,22 @@ O script principal (`service.sh`) atua em duas etapas complementares:
 5. **Kernel VM & RAM Contígua:** Configura `min_free_kbytes=65536` (64MB), `watermark_scale_factor=50`, `watermark_boost_factor=0`, `dirty_expire=500` (5s), `dirty_writeback=1000` (10s) e ZRAM `page-cluster=0`.
 6. **SLMK & Multitarefa:** Habilita política de retenção (`use_bg_keeping_policy=true`), `dha_cached_min=16`, `swap_free_low_percentage=15` e DHA para 32 apps.
 7. **Armazenamento UFS 3.1 & MicroSD:** Altera `/sys/block/sd*/queue/scheduler` para `deadline` (`read_expire=100ms`, `write_expire=1000ms`, `rq_affinity=2`, `nr_requests=256`, `iostats=0`). MicroSD com readahead de 1024KB.
-8. **Input Booster:** Parametriza `/sys/class/input_booster/touch/head` para 1.46GHz imediato nos núcleos Big.
+8. **Input Booster:** Parametriza `/sys/class/input_booster/touch/head` para 1.80GHz imediato nos núcleos Big (`200 1804800 1017 2 5`).
 9. **Rede TCP:** Define `tcp_no_metrics_save=1`, `tcp_slow_start_after_idle=0`, `tcp_fastopen=3` e backlog ampliado.
 10. **Telemetria:** Desativa daemons `cnss_diag`, `ipacm-diag` e buffers de rastreamento `Perfetto`.
 11. **Bateria e Doze:** Otimiza deep sleep e desativa varreduras Wi-Fi agressivas com tela apagada.
 12. **Firewall Local:** Isola o aplicativo `dynamicSpot` permitindo tráfego somente em loopback (`127.0.0.1`).
 13. **Câmera Stock & Preferências:** Remove `camxoverridesettings.txt` e limpa tags órfãs do CamX (`0x80640001`). Calibra `/data/data/com.sec.android.app.camera/shared_prefs/com.sec.android.app.camera_preferences.xml` desligando `qr_code_detection` (eliminando OCR em preview), `scene_optimizer`, e filtros de embelezamento.
-14. **Priorização em Tempo Real:** Eleva para `nice -20` os daemons da biometria óptica e áudio DSP; eleva para `nice -15` os daemons de Câmera (`com.sec.android.app.camera`, `cameraserver` e `vendor.samsung.hardware.camera.provider@4.0-service_64`).
+14. **Priorização em Tempo Real & CFS Shares:** Eleva para `nice -20` os daemons da biometria óptica, áudio DSP e Câmera (`com.sec.android.app.camera`, `cameraserver` e `vendor.samsung.hardware.camera.provider@4.0-service_64`); define `cpu.shares: 8192` para `camera-daemon` e `top-app`.
 15. **WhatsApp:** Mantém apenas o banco de dados ativo e o último histórico diário, prevenindo acúmulo de múltiplos gigabytes residuais.
 
 ### Etapa 2 — Sentinela Nativamente Orientado a Eventos (Futex do Kernel)
-* **Sentinela de Câmera (0ms de Latência):**
+* **Sentinela de Câmera (0ms de Latência & Fluidez na Troca de Lentes):**
   * Aguarda mudanças na propriedade `service.camera.running` via futex do kernel (`resetprop -w`), eliminando loops de polling e consumo de CPU em repouso.
-  * No exato microsegundo em que o app abre: eleva `top-app/schedtune.boost` para 25, sobe a frequência mínima de Little para 1.46 GHz, Big para 1.80 GHz e Prime para 2.17 GHz, e aplica `nice -15`.
-  * Ao fechar a câmera: restaura frequências mínimas de repouso (300/710/845 MHz), boost normal e dispara compactação assíncrona.
+  * No exato microsegundo em que o app abre: eleva `top-app/schedtune.boost` para 35, sobe a frequência mínima de Little para 1.61 GHz, Big para 2.25 GHz e Prime para 2.65 GHz, fixa a GPU Adreno 650 em 490 MHz (`idle_timer: 100ms`), e aplica `nice -20`.
+  * Ao fechar a câmera: restaura frequências mínimas de repouso (300/710/845 MHz), GPU para 305 MHz (`idle_timer: 80ms`), boost normal e dispara compactação assíncrona.
 * **Sentinela de Gravação 4K 60fps:**
-  * Escuta `service.camera.rec.running` via futex. Ao gravar em 4K60, sobe Big para 2.02 GHz e Prime para 2.46 GHz sustentados.
+  * Escuta `service.camera.rec.running` via futex. Ao gravar em 4K60, sobe Big para 2.42 GHz, Prime para 2.84 GHz e GPU para 587 MHz sustentados.
 * **Manutenção Periódica (a cada 60s):**
   * Audita `CmaFree`. Se < 60 MB e câmera inativa, executa desfragmentação preventiva.
   * Durante tela apagada (`mWakefulness=Asleep`): executa `sm fstrim` silenciosamente a cada 24 horas.
@@ -128,7 +128,7 @@ O script principal (`service.sh`) atua em duas etapas complementares:
     ```
   - Para testar e instalar diretamente no celular conectado via ADB:
     ```bash
-    adb push dist/s20fe-stock-tune-v3.9.zip /data/local/tmp/mod.zip
+    adb push dist/s20fe-stock-tune-v4.1.zip /data/local/tmp/mod.zip
     adb shell "su -c 'magisk --install-module /data/local/tmp/mod.zip; rm -f /data/local/tmp/mod.zip'"
     ```
 
@@ -136,6 +136,19 @@ O script principal (`service.sh`) atua em duas etapas complementares:
 
 ## 7. Histórico de Versões e Decisões Críticas Recentes
 
+* **v4.1 (2026-11-17):**
+  - Otimização cirúrgica para fluidez máxima na alternância entre lentes (0.5x, 1.0x, 3.0x).
+  - Elevação do piso de clock da GPU Adreno 650 para 490 MHz durante preview de câmera com `idle_timer: 100ms`, garantindo crossfade sem descarte de quadros.
+  - Sustentação de CPU Little 1.61 GHz, Big 2.25 GHz e Prime 2.65 GHz durante uso da câmera com `schedtune.boost: 35`.
+  - Concessão de peso máximo CFS (`cpu.shares: 8192`) para `camera-daemon` e `top-app`.
+  - Calibração de Input Booster para 1.80 GHz instantâneo ao toque.
+  - Priorização real-time (`nice -20`) para processos de câmera e hardware provider.
+  - Gravação 4K60 calibrada com Big 2.42 GHz, Prime 2.84 GHz e GPU 587 MHz.
+* **v4.0 (2026-11-17):**
+  - Resolução definitiva de engasgos na abertura da câmera pelo desligamento do OCR de QR Code (`qr_code_detection: 0`) nas preferências.
+  - Remoção de tags órfãs do CamX (`EISV3Enable` / `0x80640001`) e eliminação de `camxoverridesettings.txt`.
+  - Sentinela baseado 100% em futex (`resetprop -w`) para resposta com 0 ms de latência.
+  - Ajuste de marcas d'água LMKD (`min_free_kbytes: 64MB`, `watermark_scale_factor: 50`).
 * **v3.9 (2026-11-17):**
   - Implementado o agendador solid-state Deadline no UFS 3.1 com expiração de leitura de 100ms.
   - Calibrado Input Booster para 1.46 GHz no primeiro toque.
