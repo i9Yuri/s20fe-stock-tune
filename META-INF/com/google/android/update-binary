@@ -1,0 +1,28 @@
+#!/sbin/sh
+OUTFD=$2
+ZIPFILE=$3
+
+ui_print() {
+    echo -e "ui_print $1\nui_print" >> /proc/self/fd/$OUTFD
+}
+
+ui_print "**************************************************"
+ui_print "*      S20 FE Stock Tune - Ultimate Edition      *"
+ui_print "*                 Versão 3.9                     *"
+ui_print "*            Antigravity Engine                  *"
+ui_print "**************************************************"
+
+[ -z "$MODPATH" ] && MODPATH="/data/adb/modules/s20fe_stock_tune"
+mkdir -p "$MODPATH"
+
+# Remove versões legadas se existirem
+rm -rf "/data/adb/modules/s20fe_oneui5_stock_optimizer" 2>/dev/null
+rm -rf "/data/adb/modules/s20fe_wraith_optimizer" 2>/dev/null
+
+unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >/dev/null 2>&1
+chmod -R 755 "$MODPATH"
+chmod 755 "$MODPATH/service.sh"
+
+ui_print "- Módulo instalado com sucesso em $MODPATH"
+ui_print "- Otimizações v3.9 ativas e persistentes em cada boot."
+exit 0

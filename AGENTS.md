@@ -1,0 +1,1 @@
+/home/yuri/.agents/AGENTS.md

@@ -1,0 +1,1 @@
+/home/yuri/.agents/rules/spec-first-architect.md

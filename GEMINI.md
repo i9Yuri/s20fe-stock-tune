@@ -1,0 +1,1 @@
+/home/yuri/Desktop/Yuri/Projects/GEMINI.md

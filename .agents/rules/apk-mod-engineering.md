@@ -1,0 +1,1 @@
+/home/yuri/.agents/rules/apk-mod-engineering.md
